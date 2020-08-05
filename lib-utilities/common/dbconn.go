@@ -56,7 +56,7 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
                 }
 		currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.InMemoryHost)
                 if inMemDBConnPool.masterIP != currentMasterIP {
-                        writePool, _ :=  getPool(currentMasterIP, currentMasterPort)
+                        writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
 		/*
                         if ok != nil {
                                 if errs, aye := isDbConnectError(ok); aye {
@@ -83,7 +83,7 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
 		}
 		currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.OnDiskHost)
 		if onDiskDBConnPool.masterIP != currentMasterIP {
-                        writePool, _ :=  getPool(currentMasterIP, currentMasterPort)
+                        writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
 		/*
                         if ok != nil {
                                 if errs, aye := isDbConnectError(ok); aye {
