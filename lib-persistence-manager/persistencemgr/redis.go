@@ -23,47 +23,55 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"context"
 
 	"github.com/ODIM-Project/ODIM/lib-utilities/config"
 	"github.com/ODIM-Project/ODIM/lib-utilities/errors"
 	"github.com/gomodule/redigo/redis"
+	redisSentinel "github.com/go-redis/redis/v8"
 )
 
 const (
 	errorCollectingData string = "error while trying to collect data: "
 	count               int    = 1000
 )
+var ctx = context.Background()
+func sentinelNewClient(host string) *redisSentinel.SentinelClient{
+    rdb := redisSentinel.NewSentinelClient(&redisSentinel.Options{
+//        Addr:     "my-release-redis:26379",
+        Addr:     host + ":" + "26379",
+        Password: "", // no password set
+        DB:       0,  // use default DB
+    })
 
+//    pong, err := rdb.Ping(ctx).Result()
+//    fmt.Println(pong, err)
+    // Output: PONG <nil>
+    return rdb
+}
+func GetCurrentMasterHostPort(host string) (string, string) {
+
+       sentinelClient := sentinelNewClient(host)
+       result := sentinelClient.GetMasterAddrByName(ctx, "mymaster")
+       strings := result.Val()
+       masterIP := strings[0]
+       masterPort := strings[1]
+        return masterIP, masterPort
+}
 // Connection returns connection pool
 // Connection does not take any input and returns a connection object used to interact with the DB
 func (c *Config) Connection() (*ConnPool, *errors.Error) {
 	var err error
-	p := &redis.Pool{
-		// Maximum number of idle connections in the pool.
-		MaxIdle: config.Data.DBConf.MaxIdleConns,
-		// max number of connections
-		MaxActive: config.Data.DBConf.MaxActiveConns,
-		// Dial is an application supplied function for creating and
-		// configuring a connection.
-		Dial: func() (redis.Conn, error) {
-			c, err := redis.Dial(c.Protocol, c.Host+":"+c.Port)
-			return c, err
-		},
-		/*TestOnBorrow is an optional application supplied function to
-		check the health of an idle connection before the connection is
-		used again by the application. Argument t is the time that the
-		connection was returned to the pool.This function PINGs
-		connections that have been idle more than a minute.
-		If the function returns an error, then the connection is closed.
-		*/
-		TestOnBorrow: func(c redis.Conn, t time.Time) error {
-			if time.Since(t) < time.Minute {
-				return nil
-			}
-			_, err := c.Do("PING")
-			return err
-		},
-	}
+	var masterIP string
+	var masterPort string
+	connPools := &ConnPool{}
+	masterIP = c.Host
+	masterPort = c.Port
+	//      if c.RedisHAEnabled {
+	masterIP, masterPort = GetCurrentMasterHostPort(c.Host)
+	//      }
+
+	connPools.readPool, err = c.GetPool(c.Host, c.Port)
 	//Check if any connection error occured
 	if err != nil {
 		if errs, aye := isDbConnectError(err); aye {
@@ -71,10 +79,48 @@ func (c *Config) Connection() (*ConnPool, *errors.Error) {
 		}
 		return nil, errors.PackError(errors.UndefinedErrorType, err)
 	}
+	connPools.writePool, err = c.GetPool(masterIP, masterPort)
+	//Check if any connection error occured
+	if err != nil {
+		if errs, aye := isDbConnectError(err); aye {
+			return nil, errs
+		}
+		return nil, errors.PackError(errors.UndefinedErrorType, err)
+	}
+	connPools.masterIP = masterIP
+//	connPools.Create("RedisHA", "MasterIP", masterIP)
+	return connPools, nil
 
-	return &ConnPool{pool: p}, nil
 }
-
+func (c *Config) GetPool(host, port string) (*redis.Pool, error) {
+        p := &redis.Pool{
+                // Maximum number of idle connections in the pool.
+                MaxIdle: config.Data.DBConf.MaxIdleConns,
+                // max number of connections
+                MaxActive: config.Data.DBConf.MaxActiveConns,
+                // Dial is an application supplied function for creating and
+                // configuring a connection.
+                Dial: func() (redis.Conn, error) {
+                        c, err := redis.Dial(c.Protocol, host+":"+port)
+                        return c, err
+                },
+                /*TestOnBorrow is an optional application supplied function to
+                check the health of an idle connection before the connection is
+                used again by the application. Argument t is the time that the
+                connection was returned to the pool.This function PINGs
+                connections that have been idle more than a minute.
+                If the function returns an error, then the connection is closed.
+                */
+                TestOnBorrow: func(c redis.Conn, t time.Time) error {
+                        if time.Since(t) < time.Minute {
+                                return nil
+                        }
+                        _, err := c.Do("PING")
+                        return err
+                },
+        }
+        return p, nil
+}
 // Create will make an entry into the database with the given values
 /* Create takes the following keys as input:
 1."table" is a string which is used identify what kind of data we are storing.
