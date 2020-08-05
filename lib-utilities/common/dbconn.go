@@ -55,7 +55,7 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
                         inMemDBConnPool, err = config.Connection()
                 }
 		currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.InMemoryHost)
-                if inMemDBConnPool.masterIP != currentMasterIP {
+                if inMemDBConnPool.MasterIP != currentMasterIP {
                         writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
 		/*
                         if ok != nil {
@@ -65,8 +65,8 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
                                 return nil, errors.PackError(errors.UndefinedErrorType, err)
                         }
 			*/
-                        inMemDBConnPool.writePool = writePool
-                        inMemDBConnPool.masterIP = currentMasterIP
+                        inMemDBConnPool.WritePool = writePool
+                        inMemDBConnPool.MasterIP = currentMasterIP
                 }
                 return inMemDBConnPool, err
 
@@ -82,7 +82,7 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
 			onDiskDBConnPool, err = config.Connection()
 		}
 		currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.OnDiskHost)
-		if onDiskDBConnPool.masterIP != currentMasterIP {
+		if onDiskDBConnPool.MasterIP != currentMasterIP {
                         writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
 		/*
                         if ok != nil {
@@ -92,8 +92,8 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
                                 return nil, errors.PackError(errors.UndefinedErrorType, err)
                         }
 			*/
-                        onDiskDBConnPool.writePool = writePool
-			onDiskDBConnPool.masterIP = currentMasterIP
+                        onDiskDBConnPool.WritePool = writePool
+			onDiskDBConnPool.MasterIP = currentMasterIP
                 }
 
 		return onDiskDBConnPool, err

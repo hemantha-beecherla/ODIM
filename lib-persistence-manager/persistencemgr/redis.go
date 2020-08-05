@@ -71,7 +71,7 @@ func (c *Config) Connection() (*ConnPool, *errors.Error) {
 	masterIP, masterPort = GetCurrentMasterHostPort(c.Host)
 	//      }
 
-	connPools.readPool, err = c.GetPool(c.Host, c.Port)
+	connPools.ReadPool, err = GetPool(c.Host, c.Port)
 	//Check if any connection error occured
 	if err != nil {
 		if errs, aye := isDbConnectError(err); aye {
@@ -79,7 +79,7 @@ func (c *Config) Connection() (*ConnPool, *errors.Error) {
 		}
 		return nil, errors.PackError(errors.UndefinedErrorType, err)
 	}
-	connPools.writePool, err = c.GetPool(masterIP, masterPort)
+	connPools.WritePool, err = GetPool(masterIP, masterPort)
 	//Check if any connection error occured
 	if err != nil {
 		if errs, aye := isDbConnectError(err); aye {
@@ -87,12 +87,13 @@ func (c *Config) Connection() (*ConnPool, *errors.Error) {
 		}
 		return nil, errors.PackError(errors.UndefinedErrorType, err)
 	}
-	connPools.masterIP = masterIP
+	connPools.MasterIP = masterIP
 //	connPools.Create("RedisHA", "MasterIP", masterIP)
 	return connPools, nil
 
 }
-func (c *Config) GetPool(host, port string) (*redis.Pool, error) {
+func GetPool(host, port string) (*redis.Pool, error) {
+	protocol := config.Data.DBConf.Protocol
         p := &redis.Pool{
                 // Maximum number of idle connections in the pool.
                 MaxIdle: config.Data.DBConf.MaxIdleConns,
@@ -101,7 +102,7 @@ func (c *Config) GetPool(host, port string) (*redis.Pool, error) {
                 // Dial is an application supplied function for creating and
                 // configuring a connection.
                 Dial: func() (redis.Conn, error) {
-                        c, err := redis.Dial(c.Protocol, host+":"+port)
+                        c, err := redis.Dial(protocol, host+":"+port)
                         return c, err
                 },
                 /*TestOnBorrow is an optional application supplied function to
