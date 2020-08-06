@@ -291,7 +291,7 @@ func (p *ConnPool) FilterSearch(table, key, path string) (interface{}, *errors.E
 //DeleteServer data entry without table
 // Read takes "key" sting as input which acts as a unique ID to delete specific data from DB
 func (p *ConnPool) DeleteServer(key string) *errors.Error {
-	c := p.WitePool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	keys, err := c.Do("KEYS", key)
 	if err != nil {
