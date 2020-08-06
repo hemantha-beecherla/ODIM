@@ -54,20 +54,22 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
 
                         inMemDBConnPool, err = config.Connection()
                 }
-		currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.InMemoryHost)
-                if inMemDBConnPool.MasterIP != currentMasterIP {
-                        writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
-		/*
-                        if ok != nil {
-                                if errs, aye := isDbConnectError(ok); aye {
-                                        return nil, errs
-                                }
-                                return nil, errors.PackError(errors.UndefinedErrorType, err)
-                        }
-			*/
-                        inMemDBConnPool.WritePool = writePool
-                        inMemDBConnPool.MasterIP = currentMasterIP
-                }
+		if config.Data.DBConf.RedisHAEnabled {
+			currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.InMemoryHost)
+			if inMemDBConnPool.MasterIP != currentMasterIP {
+				writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
+				/*
+				if ok != nil {
+					if errs, aye := isDbConnectError(ok); aye {
+						return nil, errs
+					}
+					return nil, errors.PackError(errors.UndefinedErrorType, err)
+				}
+				*/
+				inMemDBConnPool.WritePool = writePool
+				inMemDBConnPool.MasterIP = currentMasterIP
+			}
+		}
                 return inMemDBConnPool, err
 
 	case OnDisk:
@@ -81,20 +83,22 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
 
 			onDiskDBConnPool, err = config.Connection()
 		}
-		currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.OnDiskHost)
-		if onDiskDBConnPool.MasterIP != currentMasterIP {
-                        writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
-		/*
-                        if ok != nil {
-                                if errs, aye := isDbConnectError(ok); aye {
-                                        return nil, errs
-                                }
-                                return nil, errors.PackError(errors.UndefinedErrorType, err)
-                        }
-			*/
-                        onDiskDBConnPool.WritePool = writePool
-			onDiskDBConnPool.MasterIP = currentMasterIP
-                }
+		if config.Data.DBConf.RedisHAEnabled {
+			currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.OnDiskHost)
+			if onDiskDBConnPool.MasterIP != currentMasterIP {
+				writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
+				/*
+				if ok != nil {
+					if errs, aye := isDbConnectError(ok); aye {
+						return nil, errs
+					}
+					return nil, errors.PackError(errors.UndefinedErrorType, err)
+				}
+				*/
+				onDiskDBConnPool.WritePool = writePool
+				onDiskDBConnPool.MasterIP = currentMasterIP
+			}
+		}
 
 		return onDiskDBConnPool, err
 	default:

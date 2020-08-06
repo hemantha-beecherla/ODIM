@@ -61,6 +61,7 @@ type DBConf struct {
 	OnDiskPort     string `json:"OnDiskPort"`
 	MaxIdleConns   int    `json:"MaxIdleConns"`
 	MaxActiveConns int    `json:"MaxActiveConns"`
+	RedisHAEnabled bool `json:"RedisHAEnabled"`
 }
 
 // KeyCertConf is for holding all security oriented configuration

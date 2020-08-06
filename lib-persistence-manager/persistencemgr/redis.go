@@ -67,9 +67,9 @@ func (c *Config) Connection() (*ConnPool, *errors.Error) {
 	connPools := &ConnPool{}
 	masterIP = c.Host
 	masterPort = c.Port
-	//      if c.RedisHAEnabled {
-	masterIP, masterPort = GetCurrentMasterHostPort(c.Host)
-	//      }
+	if config.Data.DBConf.RedisHAEnabled {
+		masterIP, masterPort = GetCurrentMasterHostPort(c.Host)
+	}
 
 	connPools.ReadPool, err = GetPool(c.Host, c.Port)
 	//Check if any connection error occured
@@ -129,7 +129,7 @@ func GetPool(host, port string) (*redis.Pool, error) {
 3."key" is a string which acts as a unique ID to the data entry.
 */
 func (p *ConnPool) Create(table, key string, data interface{}) *errors.Error {
-	conn := p.pool.Get()
+	conn := p.WritePool.Get()
 	defer conn.Close()
 
 	value, _ := p.Read(table, key)
@@ -156,7 +156,7 @@ func (p *ConnPool) Create(table, key string, data interface{}) *errors.Error {
 2."data" is userdata which is of type interface sent by the user to update/patch the already existing data
 */
 func (p *ConnPool) Update(table, key string, data interface{}) (string, *errors.Error) {
-	conn := p.pool.Get()
+	conn := p.WritePool.Get()
 	defer conn.Close()
 
 	if _, readErr := p.Read(table, key); readErr != nil {
@@ -182,7 +182,7 @@ func (p *ConnPool) Update(table, key string, data interface{}) (string, *errors.
 //Read is for getting singular data
 // Read takes "key" sting as input which acts as a unique ID to fetch specific data from DB
 func (p *ConnPool) Read(table, key string) (string, *errors.Error) {
-	c := p.pool.Get()
+	c := p.ReadPool.Get()
 	defer c.Close()
 	var (
 		value interface{}
@@ -214,7 +214,7 @@ func (p *ConnPool) Read(table, key string) (string, *errors.Error) {
 
 //GetAllDetails will fetch all the keys present in the database
 func (p *ConnPool) GetAllDetails(table string) ([]string, *errors.Error) {
-	c := p.pool.Get()
+	c := p.ReadPool.Get()
 	defer c.Close()
 	keys, err := c.Do("KEYS", table+":*")
 	if err != nil {
@@ -235,7 +235,7 @@ func (p *ConnPool) GetAllDetails(table string) ([]string, *errors.Error) {
 //Delete data entry
 // Read takes "key" sting as input which acts as a unique ID to delete specific data from DB
 func (p *ConnPool) Delete(table, key string) *errors.Error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	_, readErr := p.Read(table, key)
 	if readErr != nil {
@@ -256,7 +256,7 @@ func (p *ConnPool) Delete(table, key string) *errors.Error {
 //CleanUpDB will delete all database entries
 //The flush command will be executed without warnings please be cautious in using this
 func (p *ConnPool) CleanUpDB() *errors.Error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	_, err := c.Do("FLUSHALL")
 	if err != nil {
@@ -291,7 +291,7 @@ func (p *ConnPool) FilterSearch(table, key, path string) (interface{}, *errors.E
 //DeleteServer data entry without table
 // Read takes "key" sting as input which acts as a unique ID to delete specific data from DB
 func (p *ConnPool) DeleteServer(key string) *errors.Error {
-	c := p.pool.Get()
+	c := p.WitePool.Get()
 	defer c.Close()
 	keys, err := c.Do("KEYS", key)
 	if err != nil {
@@ -315,7 +315,7 @@ func (p *ConnPool) DeleteServer(key string) *errors.Error {
 
 //GetAllMatchingDetails will fetch all the keys which matches pattern present in the database
 func (p *ConnPool) GetAllMatchingDetails(table, pattern string) ([]string, *errors.Error) {
-	c := p.pool.Get()
+	c := p.ReadPool.Get()
 	defer c.Close()
 	keys, err := c.Do("KEYS", table+":*"+pattern+"*")
 	if err != nil {
@@ -335,7 +335,7 @@ func (p *ConnPool) GetAllMatchingDetails(table, pattern string) ([]string, *erro
 
 //Transaction is to do a atomic operation using optimistic lock
 func (p *ConnPool) Transaction(key string, cb func(string) error) *errors.Error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	if _, err := c.Do("WATCH", key); err != nil {
 		if errs, aye := isDbConnectError(err); aye {
@@ -369,7 +369,7 @@ func isDbConnectError(err error) (*errors.Error, bool) {
 
 //GetResourceDetails will fetch the key and also fetch the data
 func (p *ConnPool) GetResourceDetails(key string) (string, *errors.Error) {
-	c := p.pool.Get()
+	c := p.ReadPool.Get()
 	defer c.Close()
 	keys, err := c.Do("KEYS", "*"+key)
 	if err != nil {
@@ -398,7 +398,7 @@ func (p *ConnPool) GetResourceDetails(key string) (string, *errors.Error) {
 3."key" is a string which acts as a unique ID to the data entry.
 */
 func (p *ConnPool) AddResourceData(table, key string, data interface{}) *errors.Error {
-	conn := p.pool.Get()
+	conn := p.WritePool.Get()
 	defer conn.Close()
 
 	saveID := table + ":" + key
@@ -431,7 +431,7 @@ func (p *ConnPool) Ping() error {
 2. uuid is the resource id with witch the value is stored
 */
 func (p *ConnPool) CreateIndex(form map[string]interface{}, uuid string) error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	for index, value := range form {
 		var key string
@@ -481,7 +481,7 @@ func (p *ConnPool) CreateIndex(form map[string]interface{}, uuid string) error {
 3. key if of the format `UserName::Endtime::TaskID`
 */
 func (p *ConnPool) CreateTaskIndex(index string, value int64, key string) error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	createErr := c.Send("ZADD", index, value, key)
 	if createErr != nil {
@@ -498,7 +498,7 @@ func (p *ConnPool) CreateTaskIndex(index string, value int64, key string) error 
 */
 func (p *ConnPool) GetString(index string, cursor float64, match string, regexFlag bool) ([]string, error) {
 	var getList []string
-	c := p.pool.Get()
+	c := p.ReadPool.Get()
 	defer c.Close()
 	currentCursor := cursor
 	match = strings.ToLower(match)
@@ -555,7 +555,7 @@ func getUniqueSlice(inputSlice []string) []string {
 */
 func (p *ConnPool) GetStorageList(index string, cursor, match float64, condition string, regexFlag bool) ([]string, error) {
 	var getList, storeList []string
-	c := p.pool.Get()
+	c := p.ReadPool.Get()
 	defer c.Close()
 	currentCursor := cursor
 	for {
@@ -634,7 +634,7 @@ func (p *ConnPool) GetStorageList(index string, cursor, match float64, condition
 3. max is the maximum value for the search
 */
 func (p *ConnPool) GetRange(index string, min, max int, regexFlag bool) ([]string, error) {
-	c := p.pool.Get()
+	c := p.ReadPool.Get()
 	defer c.Close()
 	data, getErr := redis.Strings(c.Do("ZRANGEBYSCORE", index, min, max))
 	if getErr != nil {
@@ -658,7 +658,7 @@ func (p *ConnPool) GetRange(index string, min, max int, regexFlag bool) ([]strin
 3. max is the maximum value for the search
 */
 func (p *ConnPool) GetTaskList(index string, min, max int) ([]string, error) {
-	c := p.pool.Get()
+	c := p.ReadPool.Get()
 	defer c.Close()
 	data, getErr := redis.Strings(c.Do("ZRANGE", index, min, max))
 	if getErr != nil {
@@ -673,7 +673,7 @@ func (p *ConnPool) GetTaskList(index string, min, max int) ([]string, error) {
 2. key is the id of the resource to be deleted under an index
 */
 func (p *ConnPool) Del(index, key string) error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	k := "*" + key
 	d, e := c.Do("ZSCAN", index, 0, "MATCH", k)
@@ -706,7 +706,7 @@ func (p *ConnPool) Del(index, key string) error {
 2. key and value are the key value pair for the index
 */
 func (p *ConnPool) CreateEvtSubscriptionIndex(index string, key interface{}) error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	const value = 0
 	val, _ := p.GetEvtSubscriptions(index, key.(string))
@@ -726,7 +726,7 @@ func (p *ConnPool) CreateEvtSubscriptionIndex(index string, key interface{}) err
 // TODO: Add support for cursors and multiple data
 func (p *ConnPool) GetEvtSubscriptions(index, searchKey string) ([]string, error) {
 	var getList []string
-	c := p.pool.Get()
+	c := p.ReadPool.Get()
 	defer c.Close()
 	const cursor float64 = 0
 	currentCursor := cursor
@@ -766,7 +766,7 @@ func (p *ConnPool) GetEvtSubscriptions(index, searchKey string) ([]string, error
 // 1. index is the name of the index to be created
 // 2. removeKey is string parameter for remove
 func (p *ConnPool) DeleteEvtSubscriptions(index, removeKey string) error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 
 	value, err := p.GetEvtSubscriptions(index, removeKey)
@@ -786,7 +786,7 @@ func (p *ConnPool) DeleteEvtSubscriptions(index, removeKey string) error {
 // 1. index is the name of the index to be created
 // 2. key and value are the key value pair for the index
 func (p *ConnPool) UpdateEvtSubscriptions(index, subscritionID string, key interface{}) error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 
 	err := p.DeleteEvtSubscriptions(index, subscritionID)
@@ -806,7 +806,7 @@ func (p *ConnPool) UpdateEvtSubscriptions(index, subscritionID string, key inter
 2. key is for the index
 */
 func (p *ConnPool) CreateDeviceSubscriptionIndex(index, hostIP, location string, originResources []string) error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	const value = 0
 	originResourceStr := "[" + strings.Join(originResources, " ") + "]"
@@ -833,7 +833,7 @@ func (p *ConnPool) CreateDeviceSubscriptionIndex(index, hostIP, location string,
 // TODO : Handle cursor
 func (p *ConnPool) GetDeviceSubscription(index string, match string) ([]string, error) {
 	var data []string
-	c := p.pool.Get()
+	c := p.ReadPool.Get()
 	defer c.Close()
 	const cursor float64 = 0
 	currentCursor := cursor
@@ -870,7 +870,7 @@ func (p *ConnPool) GetDeviceSubscription(index string, match string) ([]string, 
 // 1. index is the name of the index to be created
 // 2. removeKey is string parameter for remove
 func (p *ConnPool) DeleteDeviceSubscription(index, hostIP string) error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	value, err := p.GetDeviceSubscription(index, hostIP+"*")
 	if err != nil {
@@ -889,7 +889,7 @@ func (p *ConnPool) DeleteDeviceSubscription(index, hostIP string) error {
 // 1. index is the name of the index to be created
 // 2. key and value are the key value pair for the index
 func (p *ConnPool) UpdateDeviceSubscription(index, hostIP, location string, originResources []string) error {
-	c := p.pool.Get()
+	c := p.WritePool.Get()
 	defer c.Close()
 	_, err := p.GetDeviceSubscription(index, hostIP+"*")
 	if err != nil {
