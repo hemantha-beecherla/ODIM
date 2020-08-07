@@ -34,6 +34,8 @@ github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200727095517-f2a4b
 github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200727095517-f2a4bd1bdef7/go.mod h1:NyEEh6a2bgEXock1ThrXDLnp2A5syxleqSGmWwucPPA=
 github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200805151038-b985c7417458 h1:ouFs2iCJs4KcoiYila0DIoz1IxabG0iqUi0XC83mPt0=
 github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200805151038-b985c7417458/go.mod h1:mlsr+2VLPVu4XS3+qF3/c7KUrYdOPmhOR5iUrQUAo9o=
+github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200807091621-46f90b82095e h1:hSGEN5amQaU0dxHwjPZgheWLmC4qzhbxucbOD4L+68k=
+github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200807091621-46f90b82095e/go.mod h1:mlsr+2VLPVu4XS3+qF3/c7KUrYdOPmhOR5iUrQUAo9o=
 github.com/ODIM-Project/ODIM/lib-utilities v0.0.0-20200727091052-cb7db65624ce/go.mod h1:kvWozdwrn+nfJmxQB5o2hruNU4K2c0CLn5r5UrdJp/M=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/OpenDNS/vegadns2client v0.0.0-20180418235048-a3fa4a771d87/go.mod h1:iGLljf5n9GjT6kc0HBvyI1nOKnGQbNB66VzSNbK5iks=
