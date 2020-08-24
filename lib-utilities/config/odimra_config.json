@@ -99,7 +99,8 @@
 		"TaskService",
 		"EventService",
 		"Fabrics",
-		"Managers"
+		"Managers",
+		"UpdateService"
 	],
 	"SupportedPluginTypes" : ["Compute", "Fabric"]
 }
