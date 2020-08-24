@@ -35,6 +35,8 @@ github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200727095517-f2a4b
 github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200805143823-7bb5a63c60be/go.mod h1:NyEEh6a2bgEXock1ThrXDLnp2A5syxleqSGmWwucPPA=
 github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200808043506-60da663c3133 h1:eadqqJRZjsTg1wtaYD3WNgqrvXL2y5iUQRiHXMilggk=
 github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200808043506-60da663c3133/go.mod h1:qWM8R7v8RWYi48Y4CjJiew0ndKaYk8dgw9hYQmdd6iE=
+github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200809094501-2cf1892f9897 h1:wUGdoUuLGeA/1iMUoThLmYphEh4OUkccKBw5RdREUc8=
+github.com/ODIM-Project/ODIM/lib-persistence-manager v0.0.0-20200809094501-2cf1892f9897/go.mod h1:G68D0WmORb/aGoIwwnSZwHcbLFsqAYLolS0R05svOrU=
 github.com/ODIM-Project/ODIM/lib-utilities v0.0.0-20200727091052-cb7db65624ce/go.mod h1:kvWozdwrn+nfJmxQB5o2hruNU4K2c0CLn5r5UrdJp/M=
 github.com/ODIM-Project/ODIM/lib-utilities v0.0.0-20200727103018-252e26a63065 h1:8UDUyJj62fr/f7w46LnYwokd/tjgBACJW2BjeBfyGXQ=
 github.com/ODIM-Project/ODIM/lib-utilities v0.0.0-20200727103018-252e26a63065/go.mod h1:mWour82PNJD+oJ8T2fYGpo7UBCNK7IlmPLRoeyFSYog=
@@ -49,6 +51,8 @@ github.com/ODIM-Project/ODIM/lib-utilities v0.0.0-20200805061427-98ed1ba6a551/go
 github.com/ODIM-Project/ODIM/lib-utilities v0.0.0-20200808043222-4a22b7818b35/go.mod h1:7kBrb/pLtS0CBb0IIklPik5Wv29SxTdWrrj14rWOvJA=
 github.com/ODIM-Project/ODIM/lib-utilities v0.0.0-20200808073612-08c55539255a h1:PmRqqwwL8fgsCYgE62H2k7zsmtyzXeWjhxYErxrRAHk=
 github.com/ODIM-Project/ODIM/lib-utilities v0.0.0-20200808073612-08c55539255a/go.mod h1:bYzlWfJoKbYZlsYYdHHgj9W1C9VTEDYrCizmlBjNAi0=
+github.com/ODIM-Project/ODIM/lib-utilities v0.0.0-20200809093149-80a1a9247bb2 h1:l7JjXsyKHabjVD+4/kyiHHiQpSh0tpSLbDL/W3NEy/U=
+github.com/ODIM-Project/ODIM/lib-utilities v0.0.0-20200809093149-80a1a9247bb2/go.mod h1:bYzlWfJoKbYZlsYYdHHgj9W1C9VTEDYrCizmlBjNAi0=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/OpenDNS/vegadns2client v0.0.0-20180418235048-a3fa4a771d87/go.mod h1:iGLljf5n9GjT6kc0HBvyI1nOKnGQbNB66VzSNbK5iks=
 github.com/Shopify/goreferrer v0.0.0-20181106222321-ec9c9a553398 h1:WDC6ySpJzbxGWFh4aMxFFC28wwGp5pEuoTtvA4q/qQ4=
@@ -654,6 +658,7 @@ google.golang.org/genproto v0.0.0-20190418145605-e7d98fc518a7/go.mod h1:VzzqZJRn
 google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873/go.mod h1:VzzqZJRnGkLBvHegQrXjBqPurQTc5/KpmUdxsrq26oE=
 google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55 h1:gSJIx1SDwno+2ElGhA4+qG2zF97qiUzTM+rQ0klBOcE=
 google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55/go.mod h1:DMBHOl98Agz4BDEuKkezgsaosCRResVns1a3J2ZsMNc=
+google.golang.org/genproto v0.0.0-20191009194640-548a555dbc03 h1:4HYDjxeNXAOTv3o1N2tjo8UUSlhQgAD52FVkwxnWgM8=
 google.golang.org/genproto v0.0.0-20191009194640-548a555dbc03/go.mod h1:n3cpQtvxv34hfy77yVDNjmbRyujviMdxYliBSkLhpCc=
 google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013/go.mod h1:NbSheEEYHJ7i3ixzK3sjbqSGDJWnxyFXZblF3eUsNvo=
 google.golang.org/genproto v0.0.0-20200624020401-64a14ca9d1ad h1:uAwc13+y0Y8QZLTYhLCu6lHhnG99ecQU5FYTj8zxAng=

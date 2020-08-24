@@ -27,13 +27,25 @@ import (
 
 	"github.com/ODIM-Project/ODIM/lib-utilities/config"
 	"github.com/ODIM-Project/ODIM/lib-utilities/errors"
+//	"github.com/ODIM-Project/ODIM/lib-utilities/common"
+//	"github.com/ODIM-Project/ODIM/lib-persistence-manager/resetpool"
 	"github.com/gomodule/redigo/redis"
 	redisSentinel "github.com/go-redis/redis/v8"
 )
-
+var inMemDBConnPool *ConnPool
+var onDiskDBConnPool *ConnPool
 const (
 	errorCollectingData string = "error while trying to collect data: "
 	count               int    = 1000
+)
+// DbType is a alias name for int32
+type DbType int32
+
+const (
+        //InMemory - To select in-memory db connection pool
+        InMemory DbType = iota
+        // OnDisk - To select in-disk db connection pool
+        OnDisk
 )
 var ctx = context.Background()
 func sentinelNewClient(host string) *redisSentinel.SentinelClient{
@@ -50,7 +62,8 @@ func sentinelNewClient(host string) *redisSentinel.SentinelClient{
     return rdb
 }
 func GetCurrentMasterHostPort(host string) (string, string) {
-
+	log.Println("In GetCurrentMasterHostPort, entry")
+	defer log.Println("In GetCurrentMasterHostPort, exit")
        sentinelClient := sentinelNewClient(host)
        result := sentinelClient.GetMasterAddrByName(ctx, "mymaster")
        strings := result.Val()
@@ -58,9 +71,140 @@ func GetCurrentMasterHostPort(host string) (string, string) {
        masterPort := strings[1]
         return masterIP, masterPort
 }
+func ResetDBWriteConection(dbFlag DbType){
+	log.Println("In ResetDBWriteConection, entry")
+	defer log.Println("In ResetDBWriteConection, exit")
+        switch dbFlag {
+        case InMemory:
+                if config.Data.DBConf.RedisHAEnabled {
+			time.Sleep(8*time.Second)
+                        currentMasterIP, currentMasterPort := GetCurrentMasterHostPort(config.Data.DBConf.InMemoryHost)
+                        log.Println("Inmemory MasterIP:" + currentMasterIP)
+                        if inMemDBConnPool.MasterIP != currentMasterIP {
+                                writePool, _ :=  GetPool(currentMasterIP, currentMasterPort)
+                                /*
+                                if ok != nil {
+                                        if errs, aye := isDbConnectError(ok); aye {
+                                                return nil, errs
+                                        }
+                                        return nil, errors.PackError(errors.UndefinedErrorType, err)
+                                }
+                                */
+                                inMemDBConnPool.WritePool = writePool
+                                inMemDBConnPool.MasterIP = currentMasterIP
+				inMemDBConnPool.PoolUpdatedTime = time.Now()
+                        }
+                }
+                return
+        case OnDisk:
+                if config.Data.DBConf.RedisHAEnabled {
+			time.Sleep(8*time.Second)
+                        currentMasterIP, currentMasterPort := GetCurrentMasterHostPort(config.Data.DBConf.OnDiskHost)
+                        log.Println("Ondisk MasterIP:" + currentMasterIP)
+                        if onDiskDBConnPool.MasterIP != currentMasterIP {
+                                writePool, _ :=  GetPool(currentMasterIP, currentMasterPort)
+                                /*
+                                if ok != nil {
+                                        if errs, aye := isDbConnectError(ok); aye {
+                                                return nil, errs
+                                        }
+                                        return nil, errors.PackError(errors.UndefinedErrorType, err)
+                                }
+                                */
+                                onDiskDBConnPool.WritePool = writePool
+                                onDiskDBConnPool.MasterIP = currentMasterIP
+				onDiskDBConnPool.PoolUpdatedTime = time.Now()
+                        }
+                }
+                return
+        default:
+                return
+
+        }
+}
+// GetDBConnection is for maintaining and supplying DB connection pool for InMemory and OnDisk DB's
+// Takes dbFlag of type DbType/int32
+// dbFlag:
+//      InMemory:       returns In-Memory DB connection pool
+//      OnDsik:         returns On-Disk DB connection pool
+func GetDBConnection(dbFlag DbType) (*ConnPool, *errors.Error) {
+	log.Println("In GetDBConnection, entry")
+	defer log.Println("In GetDBConnection, exit")
+        var err *errors.Error
+        switch dbFlag {
+        case InMemory:
+                // In this case this function return in-memory db connection pool
+                if inMemDBConnPool == nil || inMemDBConnPool.ReadPool == nil || inMemDBConnPool.WritePool == nil{
+                        config := Config{
+                                Port:     config.Data.DBConf.InMemoryPort,
+                                Protocol: config.Data.DBConf.Protocol,
+                                Host:     config.Data.DBConf.InMemoryHost,
+                        }
+
+                        inMemDBConnPool, err = config.Connection()
+			inMemDBConnPool.PoolUpdatedTime = time.Now()
+                }
+		/*
+                if config.Data.DBConf.RedisHAEnabled {
+                        currentMasterIP, currentMasterPort := GetCurrentMasterHostPort(config.Data.DBConf.InMemoryHost)
+                        log.Println("Inmemory MasterIP:" + currentMasterIP)
+                        if inMemDBConnPool.MasterIP != currentMasterIP {
+                                writePool, _ :=  GetPool(currentMasterIP, currentMasterPort)
+                               // if ok != nil {
+                               //         if errs, aye := isDbConnectError(ok); aye {
+                               //                 return nil, errs
+                               //         }
+                               //         return nil, errors.PackError(errors.UndefinedErrorType, err)
+                               // }
+                                
+                                inMemDBConnPool.WritePool = writePool
+                                inMemDBConnPool.MasterIP = currentMasterIP
+                        }
+                }
+		*/
+                return inMemDBConnPool, err
+
+        case OnDisk:
+                // In this case this function returns On-Disk db connection pool
+                if onDiskDBConnPool == nil || onDiskDBConnPool.ReadPool == nil || onDiskDBConnPool.WritePool == nil{
+                        config := Config{
+                                Port:     config.Data.DBConf.OnDiskPort,
+                                Protocol: config.Data.DBConf.Protocol,
+                                Host:     config.Data.DBConf.OnDiskHost,
+                        }
+
+                        onDiskDBConnPool, err = config.Connection()
+			onDiskDBConnPool.PoolUpdatedTime = time.Now()
+                }
+	/*
+                if config.Data.DBConf.RedisHAEnabled {
+                        currentMasterIP, currentMasterPort := GetCurrentMasterHostPort(config.Data.DBConf.OnDiskHost)
+                        log.Println("Ondisk MasterIP:" + currentMasterIP)
+                        if onDiskDBConnPool.MasterIP != currentMasterIP {
+                               writePool, _ :=  GetPool(currentMasterIP, currentMasterPort)
+                               // if ok != nil {
+                               //         if errs, aye := isDbConnectError(ok); aye {
+                               //                 return nil, errs
+                               //         }
+                               //         return nil, errors.PackError(errors.UndefinedErrorType, err)
+                               // }
+
+                                onDiskDBConnPool.WritePool = writePool
+                                onDiskDBConnPool.MasterIP = currentMasterIP
+                        }
+                }
+	*/
+                return onDiskDBConnPool, err
+        default:
+                return nil, errors.PackError(errors.UndefinedErrorType, "error invalid db type selection")
+        }
+}
+
 // Connection returns connection pool
 // Connection does not take any input and returns a connection object used to interact with the DB
 func (c *Config) Connection() (*ConnPool, *errors.Error) {
+	log.Println("In Connection, entry")
+	defer log.Println("In Connection, exit")
 	var err error
 	var masterIP string
 	var masterPort string
@@ -93,6 +237,8 @@ func (c *Config) Connection() (*ConnPool, *errors.Error) {
 
 }
 func GetPool(host, port string) (*redis.Pool, error) {
+	log.Println("In GetPool, entry")
+	defer log.Println("In GetPool, exit")
 	protocol := config.Data.DBConf.Protocol
         p := &redis.Pool{
                 // Maximum number of idle connections in the pool.
@@ -122,6 +268,121 @@ func GetPool(host, port string) (*redis.Pool, error) {
         }
         return p, nil
 }
+func (p *ConnPool) writeRetry(command, fullKey string, jsonData interface{}) error{
+	log.Println("In writeRetry, entry")
+	defer log.Println("In writeRetry, exit")
+//	waitDuration := time.Duration(16)*time.Second
+//	time.Sleep(waitDuration)
+	var writeErr error
+/*
+	conn := p.WritePool.Get()
+	defer conn.Close()
+	if command != "ZREM" {
+		_, writeErr = conn.Do(command, fullKey, jsonData)
+		if writeErr == nil {
+			return writeErr
+		}
+	}else{
+		writeErr = conn.Send(command, fullKey, jsonData)
+                if writeErr == nil {
+                        return writeErr
+                }
+
+	}
+	*/
+	p.WritePool = nil
+	p.resetConnectionPool()
+	writePool := p.WritePool
+	if writePool == nil {
+		return fmt.Errorf("write pool is nil")
+	}
+	newConn := writePool.Get()
+	defer newConn.Close()
+	if command != "ZREM" {
+		_, writeErr = newConn.Do(command, fullKey, jsonData)
+	}else {
+		writeErr = newConn.Send(command, fullKey, jsonData)
+	}
+	return writeErr
+}
+func (p *ConnPool) delRetry(command, fullKey string) error{
+	log.Println("In delRetry, entry")
+	defer log.Println("In delRetry, exit")
+//	p.PoolUpdatedTime
+//        waitDuration := time.Duration(16)*time.Second
+//        time.Sleep(waitDuration)
+	var delErr error
+/*
+        conn := p.WritePool.Get()
+        defer conn.Close()
+        _, delErr := conn.Do(command, fullKey)
+        if delErr == nil {
+                return delErr
+        }
+	*/
+	p.WritePool = nil
+        p.resetConnectionPool()
+        writePool := p.WritePool
+        if writePool == nil {
+                return fmt.Errorf("write pool is nil")
+        }
+        newConn := writePool.Get()
+        defer newConn.Close()
+        _, delErr = newConn.Do(command, fullKey)
+        return delErr
+}
+
+func (p* ConnPool) sendRetry(command, index string, val interface{}, key interface{}) error {
+	log.Println("In sendRetry, entry")
+	defer log.Println("In sendRetry, exit")
+//	waitDuration := time.Duration(16)*time.Second
+//	time.Sleep(waitDuration)
+	var writeErr error
+/*
+	conn := p.WritePool.Get()
+	defer conn.Close()
+	writeErr := conn.Send(command, index, val, key)
+	if writeErr == nil {
+		return writeErr
+	}
+	*/
+	p.WritePool = nil
+	p.resetConnectionPool()
+        writePool := p.WritePool
+        if writePool == nil {
+                return fmt.Errorf("write pool is nil")
+        }
+	newConn := writePool.Get()
+	defer newConn.Close()
+	writeErr = newConn.Send(command, index, val, key)
+	return writeErr
+
+}
+
+func (p *ConnPool)resetConnectionPool(){
+	log.Println("In resetRetry, entry")
+	defer log.Println("In resetRetry, exit")
+	p.Mux.Lock()
+	defer p.Mux.Unlock()
+	timeNow := time.Now()
+	elapsed := timeNow.Sub(p.PoolUpdatedTime)
+	if elapsed.Seconds() <= 20{
+	//	time.Sleep(elapsed)
+		return
+	}
+	//Check pool
+	if p.WritePool != nil{
+		return
+	}
+	if p == inMemDBConnPool {
+		ResetDBWriteConection(InMemory)
+//		p.WritePool = inMemDBConnPool.WritePool
+	}else {
+		ResetDBWriteConection(OnDisk)
+//		p.WritePool = onDiskDBConnPool.WritePool
+	}
+}
+
 // Create will make an entry into the database with the given values
 /* Create takes the following keys as input:
 1."table" is a string which is used identify what kind of data we are storing.
@@ -129,7 +390,13 @@ func GetPool(host, port string) (*redis.Pool, error) {
 3."key" is a string which acts as a unique ID to the data entry.
 */
 func (p *ConnPool) Create(table, key string, data interface{}) *errors.Error {
-	conn := p.WritePool.Get()
+	log.Println("In Create, entry")
+	defer log.Println("In Create, exit")
+	writePool := p.WritePool
+	if writePool == nil {
+		return errors.PackError(errors.UndefinedErrorType,"WritePool is nil ")
+	}
+	conn := writePool.Get()
 	defer conn.Close()
 
 	value, _ := p.Read(table, key)
@@ -143,10 +410,14 @@ func (p *ConnPool) Create(table, key string, data interface{}) *errors.Error {
 		return errors.PackError(errors.UndefinedErrorType, "Write to DB in json form failed: "+err.Error())
 	}
 	_, createErr := conn.Do("SET", saveID, jsondata)
+	if createErr == nil {
+		return nil
+	}
+	// Retry
+	createErr = p.writeRetry("SET", saveID, jsondata)
 	if createErr != nil {
 		return errors.PackError(errors.UndefinedErrorType, "Write to DB failed : "+createErr.Error())
 	}
-
 	return nil
 }
 
@@ -156,9 +427,8 @@ func (p *ConnPool) Create(table, key string, data interface{}) *errors.Error {
 2."data" is userdata which is of type interface sent by the user to update/patch the already existing data
 */
 func (p *ConnPool) Update(table, key string, data interface{}) (string, *errors.Error) {
-	conn := p.WritePool.Get()
-	defer conn.Close()
-
+	log.Println("In Update, entry")
+	defer log.Println("In Update, exit")
 	if _, readErr := p.Read(table, key); readErr != nil {
 		if errors.DBKeyNotFound == readErr.ErrNo() {
 			return "", errors.PackError(readErr.ErrNo(), "error: data with key ", key, " does not exist")
@@ -171,10 +441,22 @@ func (p *ConnPool) Update(table, key string, data interface{}) (string, *errors.
 	if err != nil {
 		return "", errors.PackError(errors.UndefinedErrorType, "Write to DB in json form failed: "+err.Error())
 	}
-	_, createErr := conn.Do("SET", saveID, jsondata)
-	if createErr != nil {
-		return "", errors.PackError(errors.UndefinedErrorType, "Write to DB failed : "+createErr.Error())
+	writePool := p.WritePool
+	if writePool == nil {
+                return "", errors.PackError(errors.UndefinedErrorType, "Write to DB failed : write DB pool is nil ")
 	}
+	conn := writePool.Get()
+	defer conn.Close()
+	_, createErr := conn.Do("SET", saveID, jsondata)
+	if createErr == nil {
+		return saveID, nil
+	}
+
+        // Retry
+        createErr = p.writeRetry("SET", saveID, jsondata)
+        if createErr != nil {
+                return "", errors.PackError(errors.UndefinedErrorType, "Write to DB failed : "+createErr.Error())
+        }
 
 	return saveID, nil
 }
@@ -182,6 +464,7 @@ func (p *ConnPool) Update(table, key string, data interface{}) (string, *errors.
 //Read is for getting singular data
 // Read takes "key" sting as input which acts as a unique ID to fetch specific data from DB
 func (p *ConnPool) Read(table, key string) (string, *errors.Error) {
+	log.Println("Hemanth In lib-persistencemanger Read, entering the function")
 	c := p.ReadPool.Get()
 	defer c.Close()
 	var (
@@ -209,11 +492,13 @@ func (p *ConnPool) Read(table, key string) (string, *errors.Error) {
 	if err != nil {
 		return "", errors.PackError(errors.UndefinedErrorType, "error while trying to convert the data into string: ", err)
 	}
+	log.Println("Hemanth In lib-persistencemanager Read, exiting the function")
 	return string(data), nil
 }
 
 //GetAllDetails will fetch all the keys present in the database
 func (p *ConnPool) GetAllDetails(table string) ([]string, *errors.Error) {
+	log.Println("In GetAllDetails, Entry")
 	c := p.ReadPool.Get()
 	defer c.Close()
 	keys, err := c.Do("KEYS", table+":*")
@@ -229,27 +514,42 @@ func (p *ConnPool) GetAllDetails(table string) ([]string, *errors.Error) {
 		ID := strings.TrimPrefix(key, table+":")
 		IDs = append(IDs, ID)
 	}
+	log.Println("In GetAllDetails, Exit")
 	return IDs, nil
 }
 
 //Delete data entry
 // Read takes "key" sting as input which acts as a unique ID to delete specific data from DB
 func (p *ConnPool) Delete(table, key string) *errors.Error {
-	c := p.WritePool.Get()
+	log.Println("In Delete, Entry")
+	writePool := p.WritePool
+	if writePool == nil {
+		return errors.PackError(errors.UndefinedErrorType, "error while trying to delete data: WritePool is nil ")
+	}
+	c := writePool.Get()
 	defer c.Close()
 	_, readErr := p.Read(table, key)
 	if readErr != nil {
+		log.Println("In Delete, exiting, due to key not found")
 		return readErr
 	}
 
 	_, doErr := c.Do("DEL", table+":"+key)
-	if doErr != nil {
-		if errs, aye := isDbConnectError(doErr); aye {
-			return errs
-		}
-		return errors.PackError(errors.UndefinedErrorType, "error while trying to delete data: ", doErr)
+	if doErr == nil {
+		log.Println("In Delete, exiting")
+		return nil
 	}
-
+//	delErr := doErr
+	// Retry
+	delErr := p.delRetry("DEL", table+":"+key)
+        if delErr != nil {
+		log.Println("In Delete, exiting")
+		if errs, aye := isDbConnectError(delErr); aye {
+                        return errs
+                }
+                return errors.PackError(errors.UndefinedErrorType, "error while trying to delete data:  : "+delErr.Error())
+        }
+	log.Println("In Delete, exiting")
 	return nil
 }
 
@@ -291,25 +591,43 @@ func (p *ConnPool) FilterSearch(table, key, path string) (interface{}, *errors.E
 //DeleteServer data entry without table
 // Read takes "key" sting as input which acts as a unique ID to delete specific data from DB
 func (p *ConnPool) DeleteServer(key string) *errors.Error {
-	c := p.WritePool.Get()
-	defer c.Close()
-	keys, err := c.Do("KEYS", key)
+	log.Println("In DeleteServer, Entry")
+	readConn := p.ReadPool.Get()
+	defer readConn.Close()
+	keys, err := readConn.Do("KEYS", key)
 	if err != nil {
 		if errs, aye := isDbConnectError(err); aye {
 			return errs
 		}
 		return errors.PackError(errors.UndefinedErrorType, errorCollectingData, err)
 	}
+	writePool := p.WritePool
+	if writePool == nil {
+		log.Println("In DeleteServer, exiting")
+		return errors.PackError(errors.UndefinedErrorType, "error while trying to delete data: WritePool is nil ")
+	}
+	writeConn := writePool.Get()
+	defer writeConn.Close()
 	for _, data := range keys.([]interface{}) {
 		delkey := string(data.([]uint8))
-		_, err := c.Do("DEL", delkey)
-		if err != nil {
-			if errs, aye := isDbConnectError(err); aye {
+		_, err := writeConn.Do("DEL", delkey)
+		if err == nil {
+			continue
+		}
+		//delErr := err
+		// Retry
+		delErr := p.delRetry("DEL", delkey)
+		if delErr != nil {
+			log.Println("In DeleteServer, exiting")
+			if errs, aye := isDbConnectError(delErr); aye {
+				log.Println("In DeleteServer, exiting")
 				return errs
 			}
-			return errors.PackError(errors.UndefinedErrorType, errorCollectingData, err)
+			return errors.PackError(errors.UndefinedErrorType, "error while trying to delete data:  : "+delErr.Error())
 		}
+
 	}
+	log.Println("In DeleteServer, exiting")
 	return nil
 }
 
@@ -335,7 +653,13 @@ func (p *ConnPool) GetAllMatchingDetails(table, pattern string) ([]string, *erro
 
 //Transaction is to do a atomic operation using optimistic lock
 func (p *ConnPool) Transaction(key string, cb func(string) error) *errors.Error {
-	c := p.WritePool.Get()
+	log.Println("In Transaction, entry")
+	defer log.Println("In Transaction, Exit")
+	writePool := p.WritePool
+	if writePool == nil {
+		return errors.PackError(errors.UndefinedErrorType, "error while trying to Write Transaction data: WritePool is nil")
+	}
+	c := writePool.Get()
 	defer c.Close()
 	if _, err := c.Do("WATCH", key); err != nil {
 		if errs, aye := isDbConnectError(err); aye {
@@ -369,6 +693,8 @@ func isDbConnectError(err error) (*errors.Error, bool) {
 
 //GetResourceDetails will fetch the key and also fetch the data
 func (p *ConnPool) GetResourceDetails(key string) (string, *errors.Error) {
+	log.Println("In GetResourceDetails, entry")
+	defer log.Println("In GetResourceDetails, exit")
 	c := p.ReadPool.Get()
 	defer c.Close()
 	keys, err := c.Do("KEYS", "*"+key)
@@ -398,7 +724,13 @@ func (p *ConnPool) GetResourceDetails(key string) (string, *errors.Error) {
 3."key" is a string which acts as a unique ID to the data entry.
 */
 func (p *ConnPool) AddResourceData(table, key string, data interface{}) *errors.Error {
-	conn := p.WritePool.Get()
+	log.Println("In AddResourceData, entry")
+	defer log.Println("In AddResourceData, exit")
+	writePool := p.WritePool
+	if writePool == nil {
+		return errors.PackError(errors.UndefinedErrorType, "Write to DB in json form failed: WritePool is nil")
+	}
+	conn := writePool.Get()
 	defer conn.Close()
 
 	saveID := table + ":" + key
@@ -408,9 +740,15 @@ func (p *ConnPool) AddResourceData(table, key string, data interface{}) *errors.
 		return errors.PackError(errors.UndefinedErrorType, "Write to DB in json form failed: "+err.Error())
 	}
 	_, createErr := conn.Do("SET", saveID, jsondata)
-	if createErr != nil {
-		return errors.PackError(errors.UndefinedErrorType, "Write to DB failed : "+createErr.Error())
+	if createErr == nil {
+		return nil
 	}
+	// Retry
+        createErr = p.writeRetry("SET", saveID, jsondata)
+        if createErr != nil {
+                return errors.PackError(errors.UndefinedErrorType, "Write to DB failed : "+createErr.Error())
+        }
+
 
 	return nil
 }
@@ -418,7 +756,11 @@ func (p *ConnPool) AddResourceData(table, key string, data interface{}) *errors.
 // Ping will check the DB connection health
 func (p *ConnPool) Ping() error {
 	readConn := p.ReadPool.Get()
-	writeConn := p.WritePool.Get()
+	writePool := p.WritePool
+	if writePool == nil {
+		return fmt.Errorf("error while pinging DB with read connection")
+	}
+	writeConn := writePool.Get()
 	defer readConn.Close()
 	defer writeConn.Close()
 	if _, err := readConn.Do("PING"); err != nil {
@@ -436,7 +778,11 @@ func (p *ConnPool) Ping() error {
 2. uuid is the resource id with witch the value is stored
 */
 func (p *ConnPool) CreateIndex(form map[string]interface{}, uuid string) error {
-	c := p.WritePool.Get()
+	writePool := p.WritePool
+	if writePool == nil {
+		return fmt.Errorf("WritePool is nil")
+	}
+	c := writePool.Get()
 	defer c.Close()
 	for index, value := range form {
 		var key string
@@ -472,9 +818,15 @@ func (p *ConnPool) CreateIndex(form map[string]interface{}, uuid string) error {
 			return fmt.Errorf("error while saving index, unsupported value type %v", v)
 		}
 		createErr := c.Send("ZADD", index, val, key)
+		if createErr == nil {
+			continue
+		}
+		// Retry
+		createErr = p.sendRetry("ZADD", index, val, key)
 		if createErr != nil {
 			return createErr
 		}
+
 	}
 	return nil
 }
@@ -486,9 +838,18 @@ func (p *ConnPool) CreateIndex(form map[string]interface{}, uuid string) error {
 3. key if of the format `UserName::Endtime::TaskID`
 */
 func (p *ConnPool) CreateTaskIndex(index string, value int64, key string) error {
-	c := p.WritePool.Get()
+	writePool := p.WritePool
+	if writePool == nil {
+		return fmt.Errorf("WritePool is nil")
+	}
+	c := writePool.Get()
 	defer c.Close()
 	createErr := c.Send("ZADD", index, value, key)
+	if createErr == nil {
+		return nil
+	}
+	// Retry
+	createErr = p.sendRetry("ZADD", index, value, key)
 	if createErr != nil {
 		return createErr
 	}
@@ -678,7 +1039,9 @@ func (p *ConnPool) GetTaskList(index string, min, max int) ([]string, error) {
 2. key is the id of the resource to be deleted under an index
 */
 func (p *ConnPool) Del(index, key string) error {
-	c := p.WritePool.Get()
+	log.Println("In Del, entry")
+	defer log.Println("In Del, exit")
+	c := p.ReadPool.Get()
 	defer c.Close()
 	k := "*" + key
 	d, e := c.Do("ZSCAN", index, 0, "MATCH", k)
@@ -693,9 +1056,20 @@ func (p *ConnPool) Del(index, key string) error {
 		if len(data) < 1 {
 			return fmt.Errorf("no data with ID found")
 		}
+		writePool := p.WritePool
+		if writePool == nil {
+			return fmt.Errorf("WritePool is nil")
+		}
+		writeConn := writePool.Get()
+		defer writeConn.Close()
 		for _, resource := range data {
 			if resource != "0" {
 				_, delErr := c.Do("ZREM", index, resource)
+				if delErr == nil {
+					continue
+				}
+				// Retry
+				delErr = p.writeRetry("ZREM", index, resource)
 				if delErr != nil {
 					return fmt.Errorf("error while trying to delete data: " + delErr.Error())
 				}
@@ -711,7 +1085,11 @@ func (p *ConnPool) Del(index, key string) error {
 2. key and value are the key value pair for the index
 */
 func (p *ConnPool) CreateEvtSubscriptionIndex(index string, key interface{}) error {
-	c := p.WritePool.Get()
+	writePool := p.WritePool
+	if writePool == nil {
+		return fmt.Errorf("WritePool is nil")
+	}
+	c := writePool.Get()
 	defer c.Close()
 	const value = 0
 	val, _ := p.GetEvtSubscriptions(index, key.(string))
@@ -719,8 +1097,13 @@ func (p *ConnPool) CreateEvtSubscriptionIndex(index string, key interface{}) err
 		return fmt.Errorf("Data Already Exist for the index: %v", index)
 	}
 	createErr := c.Send("ZADD", index, value, key)
+	if createErr == nil {
+		return nil
+	}
+	// Retry
+	createErr = p.sendRetry("ZADD", index, value, key)
 	if createErr != nil {
-		return createErr
+	        return createErr
 	}
 	return nil
 }
@@ -771,7 +1154,11 @@ func (p *ConnPool) GetEvtSubscriptions(index, searchKey string) ([]string, error
 // 1. index is the name of the index to be created
 // 2. removeKey is string parameter for remove
 func (p *ConnPool) DeleteEvtSubscriptions(index, removeKey string) error {
-	c := p.WritePool.Get()
+	writePool := p.WritePool
+	if writePool == nil {
+		return fmt.Errorf("WritePool is nil")
+	}
+	c := writePool.Get()
 	defer c.Close()
 
 	value, err := p.GetEvtSubscriptions(index, removeKey)
@@ -782,7 +1169,15 @@ func (p *ConnPool) DeleteEvtSubscriptions(index, removeKey string) error {
 		return fmt.Errorf("No data found for the key: %v", removeKey)
 	}
 	for _, data := range value {
-		c.Send("ZREM", index, data)
+		delErr := c.Send("ZREM", index, data)
+		if delErr == nil {
+			continue
+		}
+		// Retry
+		delErr = p.writeRetry("ZREM", index, data)
+		if delErr != nil {
+			return fmt.Errorf("error while trying to delete data: " + delErr.Error())
+		}
 	}
 	return nil
 }
@@ -791,7 +1186,11 @@ func (p *ConnPool) DeleteEvtSubscriptions(index, removeKey string) error {
 // 1. index is the name of the index to be created
 // 2. key and value are the key value pair for the index
 func (p *ConnPool) UpdateEvtSubscriptions(index, subscritionID string, key interface{}) error {
-	c := p.WritePool.Get()
+	writePool := p.WritePool
+	if writePool == nil {
+		return fmt.Errorf("WritePool is nil")
+	}
+	c := writePool.Get()
 	defer c.Close()
 
 	err := p.DeleteEvtSubscriptions(index, subscritionID)
@@ -811,7 +1210,11 @@ func (p *ConnPool) UpdateEvtSubscriptions(index, subscritionID string, key inter
 2. key is for the index
 */
 func (p *ConnPool) CreateDeviceSubscriptionIndex(index, hostIP, location string, originResources []string) error {
-	c := p.WritePool.Get()
+	writePool := p.WritePool
+	if writePool == nil {
+		return fmt.Errorf("WritePool is nil")
+	}
+	c := writePool.Get()
 	defer c.Close()
 	const value = 0
 	originResourceStr := "[" + strings.Join(originResources, " ") + "]"
@@ -824,8 +1227,13 @@ func (p *ConnPool) CreateDeviceSubscriptionIndex(index, hostIP, location string,
 		return fmt.Errorf("Data Already Exist for the index: %v", index)
 	}
 	createErr := c.Send("ZADD", index, value, key)
+	if createErr == nil {
+		return nil
+	}
+	// Retry
+	createErr = p.sendRetry("ZADD", index, value, key)
 	if createErr != nil {
-		return createErr
+	        return createErr
 	}
 	return nil
 }
@@ -875,7 +1283,11 @@ func (p *ConnPool) GetDeviceSubscription(index string, match string) ([]string, 
 // 1. index is the name of the index to be created
 // 2. removeKey is string parameter for remove
 func (p *ConnPool) DeleteDeviceSubscription(index, hostIP string) error {
-	c := p.WritePool.Get()
+	writePool := p.WritePool
+	if writePool == nil {
+		return fmt.Errorf("WritePool is nil")
+	}
+	c := writePool.Get()
 	defer c.Close()
 	value, err := p.GetDeviceSubscription(index, hostIP+"*")
 	if err != nil {
@@ -885,7 +1297,16 @@ func (p *ConnPool) DeleteDeviceSubscription(index, hostIP string) error {
 		return fmt.Errorf("No data found for the key: %v", hostIP)
 	}
 	for _, data := range value {
-		c.Send("ZREM", index, data)
+		delErr := c.Send("ZREM", index, data)
+		if delErr == nil {
+			continue
+		}
+                // Retry
+                delErr = p.writeRetry("ZREM", index, data)
+                if delErr != nil {
+                        return fmt.Errorf("error while trying to delete data: " + delErr.Error())
+                }
+
 	}
 	return nil
 }
@@ -894,7 +1315,11 @@ func (p *ConnPool) DeleteDeviceSubscription(index, hostIP string) error {
 // 1. index is the name of the index to be created
 // 2. key and value are the key value pair for the index
 func (p *ConnPool) UpdateDeviceSubscription(index, hostIP, location string, originResources []string) error {
-	c := p.WritePool.Get()
+	writePool := p.WritePool
+	if writePool == nil {
+		return fmt.Errorf("WritePool is nil")
+	}
+	c := writePool.Get()
 	defer c.Close()
 	_, err := p.GetDeviceSubscription(index, hostIP+"*")
 	if err != nil {

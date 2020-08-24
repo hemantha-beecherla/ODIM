@@ -18,7 +18,7 @@ package common
 import (
 	"fmt"
 	"github.com/ODIM-Project/ODIM/lib-persistence-manager/persistencemgr"
-	"github.com/ODIM-Project/ODIM/lib-utilities/config"
+	//"github.com/ODIM-Project/ODIM/lib-utilities/config"
 	"github.com/ODIM-Project/ODIM/lib-utilities/errors"
 )
 
@@ -34,18 +34,79 @@ const (
 	// OnDisk - To select in-disk db connection pool
 	OnDisk
 )
+/*
+func ResetDBWriteConection(dbFlag DbType){
+	switch dbFlag {
+	case InMemory:
+		if config.Data.DBConf.RedisHAEnabled {
+                        currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.InMemoryHost)
+                        fmt.Println("Inmemory MasterIP:" + currentMasterIP)
+                        if inMemDBConnPool.MasterIP != currentMasterIP {
+                                writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
+                                /\*
+                                if ok != nil {
+                                        if errs, aye := isDbConnectError(ok); aye {
+                                                return nil, errs
+                                        }
+                                        return nil, errors.PackError(errors.UndefinedErrorType, err)
+                                }
+                                *\/
+                                inMemDBConnPool.WritePool = writePool
+                                inMemDBConnPool.MasterIP = currentMasterIP
+                        }
+                }
+		return
+	case OnDisk:
+		if config.Data.DBConf.RedisHAEnabled {
+                        currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.OnDiskHost)
+                        fmt.Println("Ondisk MasterIP:" + currentMasterIP)
+                        if onDiskDBConnPool.MasterIP != currentMasterIP {
+                                writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
+                                /*
+                                if ok != nil {
+                                        if errs, aye := isDbConnectError(ok); aye {
+                                                return nil, errs
+                                        }
+                                        return nil, errors.PackError(errors.UndefinedErrorType, err)
+                                }
+                                *\/
+                                onDiskDBConnPool.WritePool = writePool
+                                onDiskDBConnPool.MasterIP = currentMasterIP
+                        }
+                }
+		return
+	default:
+		return
 
+	}
+	return
+}
+*/
 // GetDBConnection is for maintaining and supplying DB connection pool for InMemory and OnDisk DB's
 // Takes dbFlag of type DbType/int32
 // dbFlag:
 //	InMemory:	returns In-Memory DB connection pool
 //	OnDsik:  	returns On-Disk DB connection pool
 func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
+	switch dbFlag {
+	case InMemory:
+		pool, err := persistencemgr.GetDBConnection(persistencemgr.InMemory)
+		inMemDBConnPool = pool
+		return pool, err
+	case OnDisk:
+		pool, err := persistencemgr.GetDBConnection(persistencemgr.OnDisk)
+		onDiskDBConnPool = pool
+		return pool,err
+	default:
+		return nil, errors.PackError(errors.UndefinedErrorType, "error invalid db type selection")
+	}
+
+	/*
 	var err *errors.Error
 	switch dbFlag {
 	case InMemory:
 		// In this case this function return in-memory db connection pool
-                if inMemDBConnPool == nil {
+                if inMemDBConnPool == nil || inMemDBConnPool.ReadPool == nil || inMemDBConnPool.WritePool == nil{
                         config := persistencemgr.Config{
                                 Port:     config.Data.DBConf.InMemoryPort,
                                 Protocol: config.Data.DBConf.Protocol,
@@ -56,16 +117,17 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
                 }
 		if config.Data.DBConf.RedisHAEnabled {
 			currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.InMemoryHost)
+			fmt.Println("Inmemory MasterIP:" + currentMasterIP)
 			if inMemDBConnPool.MasterIP != currentMasterIP {
 				writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
-				/*
+				/\*
 				if ok != nil {
 					if errs, aye := isDbConnectError(ok); aye {
 						return nil, errs
 					}
 					return nil, errors.PackError(errors.UndefinedErrorType, err)
 				}
-				*/
+				*\/
 				inMemDBConnPool.WritePool = writePool
 				inMemDBConnPool.MasterIP = currentMasterIP
 			}
@@ -74,7 +136,7 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
 
 	case OnDisk:
 		// In this case this function returns On-Disk db connection pool
-		if onDiskDBConnPool == nil {
+		if onDiskDBConnPool == nil || onDiskDBConnPool.ReadPool == nil || onDiskDBConnPool.WritePool == nil{
 			config := persistencemgr.Config{
 				Port:     config.Data.DBConf.OnDiskPort,
 				Protocol: config.Data.DBConf.Protocol,
@@ -85,25 +147,26 @@ func GetDBConnection(dbFlag DbType) (*persistencemgr.ConnPool, *errors.Error) {
 		}
 		if config.Data.DBConf.RedisHAEnabled {
 			currentMasterIP, currentMasterPort := persistencemgr.GetCurrentMasterHostPort(config.Data.DBConf.OnDiskHost)
+			fmt.Println("Ondisk MasterIP:" + currentMasterIP)
 			if onDiskDBConnPool.MasterIP != currentMasterIP {
 				writePool, _ :=  persistencemgr.GetPool(currentMasterIP, currentMasterPort)
-				/*
+				/\*
 				if ok != nil {
 					if errs, aye := isDbConnectError(ok); aye {
 						return nil, errs
 					}
 					return nil, errors.PackError(errors.UndefinedErrorType, err)
 				}
-				*/
+				*\/
 				onDiskDBConnPool.WritePool = writePool
 				onDiskDBConnPool.MasterIP = currentMasterIP
 			}
 		}
-
 		return onDiskDBConnPool, err
 	default:
 		return nil, errors.PackError(errors.UndefinedErrorType, "error invalid db type selection")
 	}
+	*/
 }
 // TruncateDB will clear DB. It will be useful for test cases
 // Takes DbFlag of type DbType/int32 to choose Inmemory or OnDisk db to truncate
