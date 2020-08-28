@@ -242,16 +242,16 @@ func DeleteComputeSystem(index int, key string) *errors.Error {
 
 	// Check key present in the DB
 	if _, err = connPool.Read("ComputerSystem", key); err != nil {
-		return errors.PackError(err.ErrNo(), "error while trying to get compute details: ", err.Error())
+//		return errors.PackError(err.ErrNo(), "error while trying to get compute details: ", err.Error())
 	}
 
 	//Delete All resources
 	deleteKey := "*" + key[index+1:] + "*"
 	if err = connPool.DeleteServer(deleteKey); err != nil {
-		return errors.PackError(err.ErrNo(), "error while trying to delete compute system: ", err.Error())
+	//	return errors.PackError(err.ErrNo(), "error while trying to delete compute system: ", err.Error())
 	}
 	if errs := deletefilteredkeys(key); errs != nil {
-		return errors.PackError(errors.UndefinedErrorType, errs)
+	//	return errors.PackError(errors.UndefinedErrorType, errs)
 	}
 
 	return nil
@@ -276,7 +276,7 @@ func deletefilteredkeys(key string) error {
 			delErr := conn.Del(k, key)
 			if delErr != nil {
 				if delErr.Error() != "no data with ID found" {
-					return fmt.Errorf("error while deleting data: " + delErr.Error())
+//					return fmt.Errorf("error while deleting data: " + delErr.Error())
 				}
 			}
 		}
@@ -284,13 +284,13 @@ func deletefilteredkeys(key string) error {
 	delErr := conn.Del("UUID", key)
 	if delErr != nil {
 		if delErr.Error() != "no data with ID found" {
-			return fmt.Errorf("error while deleting data: " + delErr.Error())
+	//		return fmt.Errorf("error while deleting data: " + delErr.Error())
 		}
 	}
 	delErr = conn.Del("PowerState", key)
 	if delErr != nil {
 		if delErr.Error() != "no data with ID found" {
-			return fmt.Errorf("error while deleting data: " + delErr.Error())
+	//		return fmt.Errorf("error while deleting data: " + delErr.Error())
 		}
 	}
 	return nil
@@ -305,13 +305,13 @@ func DeleteSystem(key string) *errors.Error {
 
 	// Check key present in the DB
 	if _, err = connPool.Read("System", key); err != nil {
-		return errors.PackError(err.ErrNo(), "error while trying to get compute details: ", err.Error())
+	//	return errors.PackError(err.ErrNo(), "error while trying to get compute details: ", err.Error())
 	}
 
 	deleteKey := "System:" + key
 	//Delete All resources
 	if err = connPool.DeleteServer(deleteKey); err != nil {
-		return errors.PackError(err.ErrNo(), "error while trying to delete compute system: ", err.Error())
+	//	return errors.PackError(err.ErrNo(), "error while trying to delete compute system: ", err.Error())
 	}
 	return nil
 }

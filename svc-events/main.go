@@ -30,6 +30,7 @@ import (
 )
 
 func main() {
+	log.SetFlags(log.Ldate | log.Lmicroseconds | log.Llongfile)
 	// verifying the uid of the user
 	if uid := os.Geteuid(); uid == 0 {
 		log.Fatalln("Event Service should not be run as the root user")
